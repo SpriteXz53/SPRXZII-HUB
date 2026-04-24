@@ -1,3 +1,5 @@
+https://raw.githubusercontent.com/SpriteXz53/SPRXZII-HUB/refs/heads/main/walkonwater.lua
+
 -- [[ SPRXZII ULTIMATE V10.1 - FIX MONSTER LIST (COUNT > 1) ]] --
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
 local Window = Library.CreateLib("SPRXZII - V10.1 FULL", "DarkTheme")
@@ -226,5 +228,3 @@ lp.CharacterAdded:Connect(function()
 end)
 
 Library:Notify("SPRXZII HUB", "Smart List Ready!", 3)
-
-loadstring(game:HttpGet("https://raw.githubusercontent.com/SpriteXz53/SPRXZII-HUB/refs/heads/main/walkonwater.lua"))()
