@@ -212,3 +212,5 @@ lp.CharacterAdded:Connect(function()
 end)
 
 Library:Notify("SPRXZII HUB", "No-Mob Lag Fixed!", 3)
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/SpriteXz53/SPRXZII-HUB/refs/heads/main/walkonwater.lua"))()
