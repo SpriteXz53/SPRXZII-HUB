@@ -8,7 +8,7 @@ if not isfolder(FolderName) then makefolder(FolderName) end
 local Config = {
     AdminKey = "sprxzii",
     KeyLink = "https://work.ink/xxxx/xxxx",
-    MainScriptUrl = "https://raw.githubusercontent.com/SpriteXz53/SPRXZII-HUB/refs/heads/main/main.lua"
+    MainScriptUrl = "loadstring(game:HttpGet(https://raw.githubusercontent.com/SpriteXz53/SPRXZII-HUB/refs/heads/main/main.lua))()"
 }
 
 local function LoadMain()
