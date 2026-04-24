@@ -30,12 +30,19 @@ local Sec = Tab:NewSection("Please Enter Your Key")
 
 Sec:NewTextBox("Key", "Enter key here...", function(val)
     if val == Config.AdminKey then
-        writefile(KeyFile, val) -- เซฟคีย์ลงโฟลเดอร์
-        Library:Notify("Success", "Correct key! Loading...", 3)
+        -- ถ้าเป็นคีย์ Admin ให้รันสคริปต์เลย โดย "ไม่ใช้" writefile
+        Library:Notify("Admin Access", "Welcome back, Admin!", 3)
         task.wait(1)
+        
+        -- ปิด UI ระบบคีย์
         for i,v in pairs(game.CoreGui:GetChildren()) do
             if v:IsA("ScreenGui") and v.Name == "SPRXZII HUB - KEY SYSTEM" then v:Destroy() end
         end
+        
+        LoadMain()
+    elseif val == "คีย์ทั่วไป" then -- สมมติว่าคุณมีระบบคีย์ทั่วไปในอนาคต
+        -- ถ้าเป็นคีย์ทั่วไปค่อยสั่ง writefile(KeyFile, val)
+        writefile(KeyFile, val)
         LoadMain()
     else
         Library:Notify("Error", "Invalid key!", 3)
