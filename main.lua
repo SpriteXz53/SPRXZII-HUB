@@ -1,4 +1,4 @@
--- [[ SPRXZII ULTIMATE V10.1 - SMART EQUIP FIXED ]] --
+-- [[ SPRXZII ULTIMATE V10.1 - FIXED NO-MOB LAG ]] --
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
 local Window = Library.CreateLib("SPRXZII - V10.1 FULL", "DarkTheme")
 local lp = game.Players.LocalPlayer
@@ -27,13 +27,11 @@ local function CleanVelocity()
     end
 end
 
--- // ระบบถือของ (ทำงานเฉพาะตอนเปิดครั้งแรก และตอนเกิดใหม่) // --
+-- // ระบบถือของ // --
 local function EquipWeapon()
     pcall(function()
         local char = lp.Character
         local backpack = lp.Backpack
-        
-        -- ค้นหาอาวุธในกระเป๋าแล้วหยิบออกมา
         for _, v in pairs(backpack:GetChildren()) do
             if v:IsA("Tool") and (v.ToolTip == Settings.SelectedWeapon or v.Name:find(Settings.SelectedWeapon) or v.Name == Settings.SelectedWeapon) then
                 char.Humanoid:EquipTool(v)
@@ -54,7 +52,7 @@ local function PressT()
     end)
 end
 
--- // ระบบโจมตี (จากสคริปต์ต้นฉบับที่คุณใช้) // --
+-- // ระบบโจมตี // --
 local function SecureAttack()
     if not Settings.AutoFarm or not CurrentTarget or CurrentTarget.Humanoid.Health <= 0 then return end
     pcall(function()
@@ -85,7 +83,7 @@ local function QuestByTarget()
     end)
 end
 
--- // Main Loop // --
+-- // Main Loop (แก้แลคตอนมอนหมด) // --
 task.spawn(function()
     while true do
         task.wait()
@@ -103,10 +101,16 @@ task.spawn(function()
                         CurrentTarget = nil
                         for _, v in pairs(game.Workspace:GetDescendants()) do
                             if v.Name == TargetName and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-                                CurrentTarget = v break
+                                CurrentTarget = v 
+                                break
                             end
                         end
-                        if not CurrentTarget then CleanVelocity() end
+                        
+                        -- [[ จุดแก้แลค: ถ้าหาจนทั่วแล้วไม่เจอมอนเลย ให้พักเครื่อง 1 วินาที ]] --
+                        if not CurrentTarget then 
+                            CleanVelocity()
+                            task.wait(1) 
+                        end
                     end
                     
                     if CurrentTarget and CurrentTarget:FindFirstChild("HumanoidRootPart") then
@@ -119,7 +123,6 @@ task.spawn(function()
                         local offset = (Settings.FarmDirection == "Top" and CFrame.new(0, Settings.FarmDistance, 0)) or (Settings.FarmDirection == "Bottom" and CFrame.new(0, -Settings.FarmDistance, 0)) or CFrame.new(0, 0, Settings.FarmDistance)
                         hrp.CFrame = CFrame.lookAt((targetHrp.CFrame * offset).Position, targetHrp.Position)
                         
-                        -- ตีปกติ (ไม่ Equip ซ้ำในลูปนี้)
                         SecureAttack()
                     end
                 end
@@ -154,11 +157,7 @@ local MainTab = Window:NewTab("Auto Farm")
 local FarmSec = MainTab:NewSection("Farming")
 FarmSec:NewToggle("START AUTO FARM", "เริ่มฟาร์ม", function(state) 
     Settings.AutoFarm = state
-    if state then 
-        EquipWeapon() -- ถือของครั้งแรกเมื่อกดเปิด
-    else 
-        CleanVelocity() 
-    end 
+    if state then EquipWeapon() else CleanVelocity() end 
 end)
 FarmSec:NewToggle("Auto Quest", "รับเควส", function(state) Settings.AutoQuest = state end)
 
@@ -206,13 +205,10 @@ SetSec:NewSlider("Distance", "ระยะ", 15, 5, function(s) Settings.FarmDis
 local Config = Window:NewTab("Config")
 Config:NewSection("UI"):NewKeybind("Toggle GUI", "R-Ctrl", Enum.KeyCode.RightControl, function() Library:ToggleUI() end)
 
--- // เมื่อตัวละครเกิดใหม่ // --
 lp.CharacterAdded:Connect(function()
     task.wait(1.5)
     if Settings.AutoHakiT then PressT() end
-    if Settings.AutoFarm then 
-        EquipWeapon() -- ถือของอัติโนมัติเมื่อเกิดใหม่
-    end
+    if Settings.AutoFarm then EquipWeapon() end
 end)
 
-Library:Notify("SPRXZII HUB", "Equip: First Start & Respawn Only!", 3)
+Library:Notify("SPRXZII HUB", "No-Mob Lag Fixed!", 3)
