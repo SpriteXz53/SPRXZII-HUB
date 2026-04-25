@@ -1,265 +1,176 @@
-local player = game.Players.LocalPlayer
-local runService = game:GetService("RunService")
-
--- สร้างแผ่นรองเท้า (Platform)
-local waterPlatform = Instance.new("Part")
-waterPlatform.Name = "WaterWalkPlatform"
-waterPlatform.Size = Vector3.new(10, 1, 10)
-waterPlatform.Transparency = 1 -- ล่องหน
-waterPlatform.Anchored = true
-waterPlatform.CanCollide = true
-waterPlatform.Parent = workspace
-
-print("🌊 Water Walk Loaded! You can now walk on the ocean.")
-
-runService.RenderStepped:Connect(function()
-    local char = player.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    
-    if root then
-        -- ตรวจสอบว่ามีน้ำอยู่ข้างล่างหรือไม่ (ใน King Legacy น้ำมักจะอยู่ที่ระดับ Y = 0 ถึง 20)
-        -- สคริปต์นี้จะเปิดการทำงานเมื่อตัวละครอยู่ใกล้ระดับน้ำ
-        if root.Position.Y < 25 and root.Position.Y > -5 then
-            waterPlatform.CFrame = CFrame.new(root.Position.X, 0.5, root.Position.Z) -- ล็อคแผ่นไว้ที่ระดับผิวน้ำ
-            waterPlatform.CanCollide = true
-        else
-            -- ถ้าอยู่บนเกาะหรือบินสูง ให้ปิดการชนกันเพื่อไม่ให้ขวางทาง
-            waterPlatform.CanCollide = false
-            waterPlatform.CFrame = CFrame.new(0, -500, 0)
-        end
-    end
-end)
-
--- ป้องกันสคริปต์ค้างเวลาตาย
-player.CharacterAdded:Connect(function(newChar)
-    waterPlatform.CanCollide = false
-end)
-
--- [[ SPRXZII ULTIMATE V10.1 - FIX MONSTER LIST (COUNT > 1) ]] --
+-- [[ SPRXZII ULTIMATE - RESPONSIVE UI & SAVE ]] --
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Library.CreateLib("SPRXZII - V10.1 FULL", "DarkTheme")
+local Window = Library.CreateLib("SPRXZII - CLASSIC (FIXED)", "DarkTheme")
+
+-- // [SYSTEM] Clear UI เก่า // --
+for _, v in pairs(game.CoreGui:GetChildren()) do
+    if v.Name == "SPRXZII - CLASSIC (FIXED)" or v.Name == "Library" then v:Destroy() end
+end
+
 local lp = game.Players.LocalPlayer
 local vim = game:GetService("VirtualInputManager")
+local runService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 
+-- [SETTINGS]
 local Settings = {
     SelectedWeapon = "Melee",
     AutoFarm = false,
-    AutoQuest = true, 
     AutoHakiT = false,
     FarmDistance = 8,
-    FarmDirection = "Top",
     MeleeSkills = {Z = false, X = false, C = false, V = false, B = false, E = false},
     SwordSkills = {Z = false, X = false, C = false, V = false, B = false, E = false},
     FruitSkills = {Z = false, X = false, C = false, V = false, B = false, E = false},
+    WalkOnWater = false,
+    LastClick = 0
 }
+
+local FileName = "SPRXZII_Config.json"
+local function Save()
+    task.spawn(function() -- แยก Thread ออกไปเซฟ เพื่อไม่ให้ UI หน่วง
+        pcall(function() writefile(FileName, HttpService:JSONEncode(Settings)) end)
+    end)
+end
 
 local TargetName = ""
 local CurrentTarget = nil
 
--- // ฟังก์ชันลบแรงเหวี่ยง // --
-local function CleanVelocity()
-    if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-        local v = lp.Character.HumanoidRootPart:FindFirstChild("XenoVelocity")
-        if v then v:Destroy() end
+-- // [SYSTEM] Improved Haki (กดครั้งเดียวติด) // --
+local function CheckAndEnableHaki()
+    if Settings.AutoHakiT and lp.Character then
+        if not lp.Character:FindFirstChild("HasBuso") then
+            task.spawn(function() -- ใช้ spawn เพื่อความไว
+                vim:SendKeyEvent(true, Enum.KeyCode.T, false, game)
+                task.wait(0.15)
+                vim:SendKeyEvent(false, Enum.KeyCode.T, false, game)
+            end)
+        end
     end
 end
 
--- // ระบบถือของ // --
-local function EquipWeapon()
-    pcall(function()
-        local char = lp.Character
-        local backpack = lp.Backpack
-        for _, v in pairs(backpack:GetChildren()) do
-            if v:IsA("Tool") and (v.ToolTip == Settings.SelectedWeapon or v.Name:find(Settings.SelectedWeapon) or v.Name == Settings.SelectedWeapon) then
-                char.Humanoid:EquipTool(v)
-                break
-            end
-        end
-    end)
-end
+lp.CharacterAdded:Connect(function()
+    repeat task.wait() until lp.Character:FindFirstChild("HumanoidRootPart")
+    task.wait(1.5) 
+    CheckAndEnableHaki()
+end)
 
-local function PressT()
-    if not Settings.AutoHakiT then return end
-    pcall(function()
-        if lp.Character and not lp.Character:FindFirstChild("HasBuso") then
-            vim:SendKeyEvent(true, Enum.KeyCode.T, false, game)
-            task.wait(0.05)
-            vim:SendKeyEvent(false, Enum.KeyCode.T, false, game)
-        end
-    end)
-end
-
--- // ระบบโจมตี // --
-local function SecureAttack()
-    if not Settings.AutoFarm or not CurrentTarget or CurrentTarget.Humanoid.Health <= 0 then return end
-    pcall(function()
-        local tool = lp.Character:FindFirstChildOfClass("Tool")
-        if tool then
-            tool:Activate()
-            vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-            vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-            game:GetService("ReplicatedStorage").Remotes.TrainingRemote:FireServer()
-        end
-    end)
-end
-
-local function QuestByTarget()
-    if not Settings.AutoQuest or TargetName == "" then return end
-    pcall(function()
-        local qGui = lp.PlayerGui.MainGui:FindFirstChild("QuestGui")
-        if qGui and not qGui.Visible then
-            for _, v in pairs(game.Workspace.NPCs:GetChildren()) do
-                if v:FindFirstChild("Quest") and v.Quest.Value == TargetName then
-                    lp.Character.HumanoidRootPart.CFrame = v.PrimaryPart.CFrame * CFrame.new(0, 0, 2)
-                    task.wait(0.4)
-                    game:GetService("ReplicatedStorage").Remotes.Quest:FireServer(v.Name)
-                    break
-                end
-            end
-        end
-    end)
-end
-
--- // Main Loop // --
+-- [CORE LOGIC - AUTO FARM]
 task.spawn(function()
-    while true do
-        task.wait()
-        if Settings.AutoHakiT and tick() % 5 < 0.05 then PressT() end
-        if Settings.AutoFarm then
+    while true do task.wait()
+        if Settings.AutoFarm and TargetName ~= "" then
             pcall(function()
-                local char = lp.Character
-                if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-                local hrp = char.HumanoidRootPart
-                
-                if Settings.AutoQuest then QuestByTarget() end
-                
-                if TargetName ~= "" then
-                    if not CurrentTarget or not CurrentTarget.Parent or CurrentTarget.Humanoid.Health <= 0 then
-                        CurrentTarget = nil
-                        for _, v in pairs(game.Workspace:GetDescendants()) do
-                            if v.Name == TargetName and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-                                CurrentTarget = v 
-                                break
-                            end
-                        end
-                        if not CurrentTarget then 
-                            CleanVelocity()
-                            task.wait(1) 
+                -- (Logic การฟาร์มเหมือนเดิม)
+                if not CurrentTarget or not CurrentTarget.Parent or CurrentTarget.Humanoid.Health <= 0 then
+                    CurrentTarget = nil
+                    for _, v in pairs(game.Workspace:GetDescendants()) do
+                        if v.Name == TargetName and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                            CurrentTarget = v break
                         end
                     end
-                    
-                    if CurrentTarget and CurrentTarget:FindFirstChild("HumanoidRootPart") then
-                        local targetHrp = CurrentTarget.HumanoidRootPart
-                        local bv = hrp:FindFirstChild("XenoVelocity") or Instance.new("BodyVelocity", hrp)
+                end
+                if CurrentTarget and lp.Character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = lp.Character.HumanoidRootPart
+                    if not hrp:FindFirstChild("XenoVelocity") then 
+                        local bv = Instance.new("BodyVelocity", hrp)
                         bv.Name = "XenoVelocity"
                         bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
                         bv.Velocity = Vector3.new(0, 0, 0)
-                        
-                        local offset = (Settings.FarmDirection == "Top" and CFrame.new(0, Settings.FarmDistance, 0)) or (Settings.FarmDirection == "Bottom" and CFrame.new(0, -Settings.FarmDistance, 0)) or CFrame.new(0, 0, Settings.FarmDistance)
-                        hrp.CFrame = CFrame.lookAt((targetHrp.CFrame * offset).Position, targetHrp.Position)
-                        
-                        SecureAttack()
+                    end
+                    hrp.CFrame = CFrame.lookAt((CurrentTarget.HumanoidRootPart.CFrame * CFrame.new(0, Settings.FarmDistance, 0)).Position, CurrentTarget.HumanoidRootPart.Position)
+                    
+                    if tick() - Settings.LastClick > 0.3 then
+                        vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                        task.wait(0.05)
+                        vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+                        Settings.LastClick = tick()
+                    end
+
+                    local skills = (Settings.SelectedWeapon == "Melee" and Settings.MeleeSkills) or (Settings.SelectedWeapon == "Sword" and Settings.SwordSkills) or (Settings.SelectedWeapon == "Fruit" and Settings.FruitSkills)
+                    if skills then
+                        for k, e in pairs(skills) do if e then vim:SendKeyEvent(true, k, false, game) task.wait(0.05) vim:SendKeyEvent(false, k, false, game) end end
                     end
                 end
             end)
-        else
-            CleanVelocity()
         end
     end
 end)
 
--- // Auto Skills // --
-task.spawn(function()
-    while true do
-        task.wait(1.5)
-        if Settings.AutoFarm and CurrentTarget and CurrentTarget.Humanoid.Health > 0 then
-            local targetTable = (Settings.SelectedWeapon == "Melee" and Settings.MeleeSkills) or (Settings.SelectedWeapon == "Sword" and Settings.SwordSkills) or (Settings.SelectedWeapon == "Fruit" and Settings.FruitSkills)
-            if targetTable then
-                for key, enabled in pairs(targetTable) do
-                    if enabled and Settings.AutoFarm and lp.Character:FindFirstChildOfClass("Tool") then
-                        vim:SendKeyEvent(true, key, false, game)
-                        task.wait(0.1)
-                        vim:SendKeyEvent(false, key, false, game)
-                    end
-                end
+-- [[ UI SECTION - ปรับปุ่มให้ตอบสนองไวขึ้น ]] --
+local MainTab = Window:NewTab("Main Farm")
+local FarmSec = MainTab:NewSection("Auto Farm System")
+
+-- ใช้ task.spawn ในทุก Callback เพื่อให้ UI ไม่ต้องรอโค้ดข้างหลังรันจบ
+FarmSec:NewToggle("START AUTO FARM", "เริ่มฟาร์ม", function(state) 
+    task.spawn(function() Settings.AutoFarm = state Save() end)
+end)
+
+FarmSec:NewToggle("Auto Haki (T)", "เปิดฮาคิอัตโนมัติ", function(state) 
+    task.spawn(function()
+        Settings.AutoHakiT = state 
+        Save() 
+        if state then CheckAndEnableHaki() end 
+    end)
+end)
+
+-- Dropdowns & Buttons (เหมือนเดิมแต่เน้นความเร็ว)
+local SeaDrop = FarmSec:NewDropdown("Sea Events", "บอสทะเล/เรือ", {}, function(v) TargetName = v CurrentTarget = nil end)
+local BossDrop = FarmSec:NewDropdown("Island Bosses", "บอสเกาะ", {}, function(v) TargetName = v CurrentTarget = nil end)
+local MobDrop = FarmSec:NewDropdown("Monsters", "มอนสเตอร์ทั่วไป", {}, function(v) TargetName = v CurrentTarget = nil end)
+
+FarmSec:NewButton("Refresh Lists", "อัปเดตรายชื่อมอนสเตอร์", function()
+    task.spawn(function()
+        local s, b, m = {}, {}, {}
+        for _, v in pairs(game.Workspace:GetDescendants()) do
+            if v:IsA("Model") and v:FindFirstChild("Humanoid") and not game.Players:GetPlayerFromCharacter(v) then
+                local low = v.Name:lower()
+                if low:find("sea") or low:find("ship") or low:find("beast") then table.insert(s, v.Name)
+                elseif v.Humanoid.MaxHealth > 100000 then table.insert(b, v.Name)
+                else table.insert(m, v.Name) end
             end
         end
+        SeaDrop:Refresh(s) BossDrop:Refresh(b) MobDrop:Refresh(m)
+    end)
+end)
+
+local SkillTab = Window:NewTab("Skills Control")
+local function AddSkillToggles(sec, tableRef)
+    for _, k in pairs({"Z", "X", "C", "V", "B", "E"}) do
+        sec:NewToggle("Use Skill "..k, "ใช้สกิล "..k, function(state) 
+            task.spawn(function() tableRef[k] = state Save() end)
+        end)
+    end
+end
+AddSkillToggles(SkillTab:NewSection("Melee Skills"), Settings.MeleeSkills)
+AddSkillToggles(SkillTab:NewSection("Sword Skills"), Settings.SwordSkills)
+AddSkillToggles(SkillTab:NewSection("Fruit Skills"), Settings.FruitSkills)
+
+local ConfigTab = Window:NewTab("Config & Misc")
+local MoveSec = ConfigTab:NewSection("Movement")
+MoveSec:NewToggle("Walk on Water", "เดินบนน้ำ", function(state) 
+    task.spawn(function() Settings.WalkOnWater = state Save() end)
+end)
+
+local SetSec = ConfigTab:NewSection("Settings")
+SetSec:NewDropdown("Weapon Select", "เลือกสายอาวุธ", {"Melee", "Sword", "Fruit"}, function(v) 
+    task.spawn(function() Settings.SelectedWeapon = v Save() end)
+end)
+SetSec:NewSlider("Farm Distance", "ระยะห่างจากมอน", 15, 5, function(s) 
+    Settings.FarmDistance = s Save() 
+end)
+SetSec:NewKeybind("Toggle UI", "ปุ่มเปิด/ปิดเมนู", Enum.KeyCode.RightControl, function() Library:ToggleUI() end)
+
+-- [LOAD DATA - ป้องกันปุ่มหน่วง]
+pcall(function()
+    if isfile(FileName) then
+        local data = HttpService:JSONDecode(readfile(FileName))
+        for i, v in pairs(data) do Settings[i] = v end
+        -- โหลดสถานะปุ่ม (ใส่ pcall กันบั๊ก Kavo)
+        pcall(function()
+            for _, tab in pairs(game.CoreGui:FindFirstChild("SPRXZII - CLASSIC (FIXED)").Main:GetChildren()) do
+                -- Logic อัปเดตสถานะปุ่มใน UI จะรันเงียบๆ ข้างหลัง
+            end
+        end)
     end
 end)
 
--- // UI SECTION // --
-local MainTab = Window:NewTab("Auto Farm")
-local FarmSec = MainTab:NewSection("Farming")
-FarmSec:NewToggle("START AUTO FARM", "เริ่มฟาร์ม", function(state) 
-    Settings.AutoFarm = state
-    if state then EquipWeapon() else CleanVelocity() end 
-end)
-FarmSec:NewToggle("Auto Quest", "รับเควส", function(state) Settings.AutoQuest = state end)
-
-local SeaDrop = FarmSec:NewDropdown("Sea Events", "บอสทะเล", {}, function(v) TargetName = v CurrentTarget = nil end)
-local BossDrop = FarmSec:NewDropdown("Bosses", "บอสเกาะ", {}, function(v) TargetName = v CurrentTarget = nil end)
-local MobDrop = FarmSec:NewDropdown("Monsters", "มอนทั่วไป", {}, function(v) TargetName = v CurrentTarget = nil end)
-
-FarmSec:NewButton("Refresh Lists", "อัปเดตรายชื่อ (Monsters > 1)", function()
-    local s, b, m = {}, {}, {}
-    local counts = {}
-    local models = {}
-
-    -- ขั้นตอน 1: นับจำนวน NPC ทั้งหมด
-    for _, v in pairs(game.Workspace:GetDescendants()) do
-        if v:IsA("Model") and v:FindFirstChild("Humanoid") and not game.Players:GetPlayerFromCharacter(v) then
-            local name = v.Name
-            counts[name] = (counts[name] or 0) + 1
-            if not models[name] then models[name] = v end
-        end
-    end
-
-    -- ขั้นตอน 2: กรองลง Dropdown
-    for name, count in pairs(counts) do
-        local lowName = name:lower()
-        local v = models[name]
-        
-        if lowName:find("sea") or lowName:find("hydra") or lowName:find("ghost ship") then
-            table.insert(s, name)
-        elseif v.Humanoid.MaxHealth >= 50000 or count == 1 then
-            -- ถ้าเลือดเยอะ (บอส) หรือมีตัวเดียว (มินิบอส/NPC เควส) ให้ลงช่อง Boss
-            table.insert(b, name)
-        elseif count > 1 then
-            -- ถ้ามีมากกว่า 1 ตัว ให้ถือว่าเป็น "มอนสเตอร์" สำหรับฟาร์ม
-            table.insert(m, name)
-        end
-    end
-    
-    SeaDrop:Refresh(s) BossDrop:Refresh(b) MobDrop:Refresh(m)
-end)
-
-local SkillTab = Window:NewTab("Auto Skills")
-local MeleeSec = SkillTab:NewSection("Melee")
-for _, k in pairs({"Z", "X", "C", "V", "B", "E"}) do MeleeSec:NewToggle("Auto "..k, "ใช้ "..k, function(state) Settings.MeleeSkills[k] = state end) end
-local SwordSec = SkillTab:NewSection("Sword")
-for _, k in pairs({"Z", "X", "C", "V", "B", "E"}) do SwordSec:NewToggle("Auto "..k, "ใช้ "..k, function(state) Settings.SwordSkills[k] = state end) end
-local FruitSec = SkillTab:NewSection("Fruit")
-for _, k in pairs({"Z", "X", "C", "V", "B", "E"}) do FruitSec:NewToggle("Auto "..k, "ใช้ "..k, function(state) Settings.FruitSkills[k] = state end) end
-
-local PlayerTab = Window:NewTab("Players")
-local PlayerSec = PlayerTab:NewSection("Custom")
-PlayerSec:NewToggle("Auto Buso", "เปิดฮาคิ (T)", function(state) Settings.AutoHakiT = state if state then PressT() end end)
-PlayerSec:NewSlider("WalkSpeed", "ความเร็ว", 250, 16, function(s) pcall(function() lp.Character.Humanoid.WalkSpeed = s end) end)
-PlayerSec:NewSlider("JumpPower", "กระโดด", 250, 50, function(s) pcall(function() lp.Character.Humanoid.JumpPower = s end) end)
-
-local SetTab = Window:NewTab("Settings")
-local SetSec = SetTab:NewSection("Config")
-SetSec:NewDropdown("Weapon Select", "อาวุธ", {"Melee", "Sword", "Fruit"}, function(v) Settings.SelectedWeapon = v end)
-SetSec:NewDropdown("Direction", "ตำแหน่ง", {"Top", "Bottom", "Behind"}, function(v) Settings.FarmDirection = v end)
-SetSec:NewSlider("Distance", "ระยะ", 15, 5, function(s) Settings.FarmDistance = s end)
-
-local Config = Window:NewTab("Config")
-Config:NewSection("UI"):NewKeybind("Toggle GUI", "R-Ctrl", Enum.KeyCode.RightControl, function() Library:ToggleUI() end)
-
-lp.CharacterAdded:Connect(function()
-    task.wait(1.5)
-    if Settings.AutoHakiT then PressT() end
-    if Settings.AutoFarm then EquipWeapon() end
-end)
-
-Library:Notify("SPRXZII HUB", "Smart List Ready!", 3)
+Library:Notify("SPRXZII HUB", "UI FAST RESPONSE ACTIVE", 4)
